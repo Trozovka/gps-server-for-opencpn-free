@@ -130,7 +130,8 @@ class MainActivity : ComponentActivity() {
     private fun startServer() {
         val intent = Intent(this, GpsServerService::class.java).apply {
             putExtra(GpsServerService.EXTRA_PORT, preferences.port)
-            preferences.boundAddress?.let { putExtra(GpsServerService.EXTRA_BIND_ADDRESS, it) }
+            // No bind address on purpose: the server listens on every network of the phone (0.0.0.0).
+            // Binding the saved IP broke the server whenever the phone got a new address (v1.0.2 fix).
         }
         ContextCompat.startForegroundService(this, intent)
     }

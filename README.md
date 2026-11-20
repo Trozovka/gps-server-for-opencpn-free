@@ -44,7 +44,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ## Using it with OpenCPN
 
 1. Install and open the app, grant the location permissions it asks for, and allow the battery-optimization exemption when prompted -- this is what keeps it running with the screen off.
-2. Tap **Start**. Note the IP address shown under "Server IP (this device)."
+2. Tap **Start**. Note the phone's IP address shown in the app (it listens on Wi-Fi and hotspot alike, and follows a new address automatically).
 3. In OpenCPN on your laptop: **Options -> Connections -> Add Connection**. Set Type to `Network`, Protocol to `TCP`, Address to the phone's IP, DataPort to `10110` (or whatever you set in Settings). Check **Receive Input**, leave Output unchecked.
 4. OpenCPN should show a live GNSS fix within a couple of seconds.
 

@@ -24,7 +24,7 @@ fun IpPicker(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("Server IP (this device)", style = MaterialTheme.typography.labelMedium)
+        Text("This phone's IP - type it in OpenCPN (the server listens on all of them)", style = MaterialTheme.typography.labelMedium)
         if (addresses.isEmpty()) {
             Text("No network interface found", style = MaterialTheme.typography.bodySmall)
         }

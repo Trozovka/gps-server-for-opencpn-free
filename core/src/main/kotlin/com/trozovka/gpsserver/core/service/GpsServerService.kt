@@ -77,7 +77,8 @@ class GpsServerService : Service() {
         }
 
         val port = intent?.getIntExtra(EXTRA_PORT, DEFAULT_PORT) ?: DEFAULT_PORT
-        val bindAddress = intent?.getStringExtra(EXTRA_BIND_ADDRESS)
+        // Always all networks (0.0.0.0); a specific saved IP goes stale when Wi-Fi/hotspot changes.
+        val bindAddress: String? = null
         if (serverJob == null) {
             startServer(port, bindAddress)
         }

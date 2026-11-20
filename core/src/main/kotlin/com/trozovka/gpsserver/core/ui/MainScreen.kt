@@ -61,9 +61,21 @@ fun MainScreen(
     var debugLogExpanded by remember { mutableStateOf(false) }
     var selectionWarning by remember { mutableStateOf<String?>(null) }
     var selectedAddress by remember { mutableStateOf(preferences.boundAddress) }
-    val addresses = remember { NetworkInterfaces.listIPv4Addresses() }
+    var addresses by remember { mutableStateOf(NetworkInterfaces.listIPv4Addresses()) }
 
+    // Keep the list current (Wi-Fi/hotspot changes) and never keep an address the phone no longer has.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            val now = NetworkInterfaces.listIPv4Addresses()
+            if (now != addresses) addresses = now
+        }
+    }
     LaunchedEffect(addresses) {
+        if (selectedAddress != null && selectedAddress !in addresses) {
+            selectedAddress = null
+            preferences.boundAddress = null
+        }
         if (selectedAddress == null && addresses.size == 1) {
             selectedAddress = addresses.first()
             preferences.boundAddress = addresses.first()
@@ -136,8 +148,6 @@ fun MainScreen(
                 onClick = {
                     if (isRunning) {
                         onStopRequested()
-                    } else if (selectedAddress == null && addresses.size > 1) {
-                        selectionWarning = "Select a network interface above before starting"
                     } else {
                         selectionWarning = null
                         onStartRequested()
