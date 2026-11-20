@@ -53,6 +53,7 @@ fun MainScreen(
     val latestFix by GpsServerService.latestFix.collectAsState()
     val latencyMillis by GpsServerService.latencyMillis.collectAsState()
     val connectedClient by GpsServerService.connectedClient.collectAsState()
+    val clients by GpsServerService.clients.collectAsState()
     val sentStats by GpsServerService.sentStats.collectAsState()
     val startTimeMillis by GpsServerService.startTimeMillis.collectAsState()
     val debugLog by GpsServerService.debugLog.collectAsState()
@@ -142,7 +143,7 @@ fun MainScreen(
                 color = MaterialTheme.colorScheme.error,
             )
             Text("GPS: $gpsStatus")
-            Text("Network: ${if (connectedClient != null) "Connected" else "Disconnected"}")
+            Text("Network: ${when (clients.size) { 0 -> "Disconnected"; 1 -> "Connected"; else -> "Connected (${clients.size} clients)" }}")
 
             Button(
                 onClick = {
@@ -185,7 +186,7 @@ fun MainScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Client: ${connectedClient?.address ?: "--"}")
+                Text("Client: ${if (clients.size > 1) clients.joinToString(", ") { it.address } else connectedClient?.address ?: "--"}")
                 Text("Port: ${connectedClient?.port ?: "--"}")
             }
 

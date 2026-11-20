@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,10 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
-import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 
 data class ConnectedClient(val address: String, val port: Int)
 data class SentStats(val sentenceCount: Long, val byteCount: Long)
@@ -85,8 +86,47 @@ class GpsServerService : Service() {
         return START_STICKY
     }
 
+    /** One connected OpenCPN (or other) client: its socket, its own send queue, and when a write last succeeded. */
+    private class ClientConn(val socket: Socket, val info: ConnectedClient) {
+        val queue = Channel<ByteArray>(Channel.CONFLATED)
+        /** When the current write started (0 = not writing). A write stuck this long means the client is gone. */
+        @Volatile var writingSince = 0L
+    }
+
+    private val clients = ConcurrentHashMap<Socket, ClientConn>()
+
+    private fun publishClients() {
+        val list = clients.values.map { it.info }
+        _clients.value = list
+        _connectedClient.value = list.lastOrNull()
+    }
+
     private fun startServer(port: Int, bindAddress: String?) {
         serverJob = scope.launch {
+            // Broadcaster: build each second's sentences ONCE and hand them to every client's own queue,
+            // so a slow or dead client can never hold up the others (v1.0.3, multi-client).
+            launch {
+                while (isActive) {
+                    val fix = locationSource.fixes.value
+                    if (fix != null && clients.isNotEmpty()) {
+                        val bytes = buildFix(fix)
+                        clients.values.forEach { it.queue.trySend(bytes) }
+                    }
+                    delay(1000)
+                }
+            }
+            // Watchdog: a client whose current write has been stuck for DEAD_CLIENT_MILLIS (laptop asleep, Wi-Fi gone,
+            // firewall dropping packets so no TCP reset) is closed. Idle clients (no GPS fix yet) are never dropped.
+            launch {
+                while (isActive) {
+                    delay(2000)
+                    val now = System.currentTimeMillis()
+                    clients.values.filter { it.writingSince != 0L && now - it.writingSince > DEAD_CLIENT_MILLIS }.forEach {
+                        Log.i(TAG, "Dropping unresponsive client ${it.info.address}:${it.info.port}")
+                        runCatching { it.socket.close() }
+                    }
+                }
+            }
             try {
                 // Explicit IPv4 wildcard: an address-less InetSocketAddress(port) binds the
                 // IPv6 wildcard on this hardware, which didn't accept plain IPv4 connections
@@ -97,44 +137,61 @@ class GpsServerService : Service() {
                     bind(socketAddress)
                 }.use { server ->
                     while (isActive) {
-                        val client = server.accept()
-                        _connectedClient.value = ConnectedClient(
-                            client.inetAddress.hostAddress ?: "?",
-                            client.port,
+                        val socket = server.accept()
+                        if (clients.size >= MAX_CLIENTS) {
+                            Log.w(TAG, "Too many clients, refusing ${socket.inetAddress.hostAddress}")
+                            runCatching { socket.close() }
+                            continue
+                        }
+                        val conn = ClientConn(
+                            socket,
+                            ConnectedClient(socket.inetAddress.hostAddress ?: "?", socket.port),
                         )
-                        handleClient(client)
-                        _connectedClient.value = null
+                        clients[socket] = conn
+                        publishClients()
+                        launch { handleClient(conn) }
                     }
                 }
             } catch (e: IOException) {
                 Log.w(TAG, "Server loop ended", e)
+            } finally {
+                clients.keys.forEach { runCatching { it.close() } }
+                clients.clear()
+                publishClients()
             }
         }
     }
 
-    private suspend fun handleClient(socket: Socket) {
-        socket.use { client ->
+    private suspend fun handleClient(conn: ClientConn) {
+        conn.socket.use { client ->
             client.tcpNoDelay = true
+            client.keepAlive = true
+            // Small send buffer: a dead client fills it within seconds, so its write blocks and the watchdog sees it.
+            runCatching { client.sendBufferSize = SEND_BUFFER_BYTES }
             val out = client.getOutputStream()
             try {
-                while (scope.isActive) {
-                    locationSource.fixes.value?.let { writeFix(out, it) }
-                    delay(1000)
+                for (bytes in conn.queue) {
+                    conn.writingSince = System.currentTimeMillis()
+                    out.write(bytes)
+                    out.flush()
+                    conn.writingSince = 0L
                 }
             } catch (e: IOException) {
                 Log.i(TAG, "Client disconnected: ${e.message}")
+            } finally {
+                clients.remove(client)
+                conn.queue.close()
+                publishClients()
             }
         }
     }
 
-    private fun writeFix(out: OutputStream, fix: GpsFix) {
+    private fun buildFix(fix: GpsFix): ByteArray {
         val sentences = NmeaFormatter.gga(fix) +
             NmeaFormatter.rmc(fix) +
             NmeaFormatter.vtg(fix) +
             NmeaFormatter.gsa(fix)
         val bytes = sentences.toByteArray()
-        out.write(bytes)
-        out.flush()
 
         val stats = _sentStats.value
         _sentStats.value = SentStats(stats.sentenceCount + 4, stats.byteCount + bytes.size)
@@ -147,6 +204,7 @@ class GpsServerService : Service() {
         if (latencyMillis > LATENCY_WARNING_THRESHOLD_MILLIS) {
             Log.w(TAG, "Fix-to-wire latency high: ${latencyMillis}ms")
         }
+        return bytes
     }
 
     private fun acquireWakeLock() {
@@ -197,6 +255,7 @@ class GpsServerService : Service() {
         _latestFix.value = null
         _latencyMillis.value = null
         _connectedClient.value = null
+        _clients.value = emptyList()
         _sentStats.value = SentStats(0, 0)
         _debugLog.value = emptyList()
         super.onDestroy()
@@ -210,6 +269,9 @@ class GpsServerService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val LATENCY_WARNING_THRESHOLD_MILLIS = 500L
         private const val MAX_DEBUG_LOG_LINES = 200
+        private const val DEAD_CLIENT_MILLIS = 15_000L
+        private const val MAX_CLIENTS = 8
+        private const val SEND_BUFFER_BYTES = 4096
         const val DEFAULT_PORT = 10110
         const val EXTRA_PORT = "extra_port"
         const val EXTRA_BIND_ADDRESS = "extra_bind_address"
@@ -240,7 +302,11 @@ class GpsServerService : Service() {
         val latencyMillis: StateFlow<Long?> = _latencyMillis.asStateFlow()
 
         private val _connectedClient = MutableStateFlow<ConnectedClient?>(null)
+        /** Most recently connected client (kept for the single-client UI fields). */
         val connectedClient: StateFlow<ConnectedClient?> = _connectedClient.asStateFlow()
+        private val _clients = MutableStateFlow<List<ConnectedClient>>(emptyList())
+        /** Every connected client (v1.0.3: several laptops can use one phone). */
+        val clients: StateFlow<List<ConnectedClient>> = _clients.asStateFlow()
 
         private val _sentStats = MutableStateFlow(SentStats(0, 0))
         val sentStats: StateFlow<SentStats> = _sentStats.asStateFlow()
