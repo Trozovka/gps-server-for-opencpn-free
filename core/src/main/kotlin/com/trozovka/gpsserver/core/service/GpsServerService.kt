@@ -73,6 +73,7 @@ class GpsServerService : Service() {
         locationSource.start()
         _isRunning.value = true
         _capExpired.value = false
+        _startError.value = null
         scope.launch {
             locationSource.fixes.collect { _latestFix.value = it }
         }
@@ -161,10 +162,19 @@ class GpsServerService : Service() {
                 // IPv6 wildcard on this hardware, which didn't accept plain IPv4 connections
                 // from OpenCPN/nc in testing.
                 val socketAddress = InetSocketAddress(bindAddress ?: "0.0.0.0", port)
-                ServerSocket().apply {
-                    reuseAddress = true
-                    bind(socketAddress)
-                }.use { server ->
+                val listening = ServerSocket()
+                try {
+                    listening.reuseAddress = true
+                    listening.bind(socketAddress)
+                } catch (e: IOException) {
+                    runCatching { listening.close() }
+                    Log.w(TAG, "Cannot listen on port $port", e)
+                    _startError.value = "Cannot start: port $port is used by another app on this phone. " +
+                        "Stop that app, or choose another port in Settings (and in OpenCPN)."
+                    stopSelf()
+                    return@launch
+                }
+                listening.use { server ->
                     serverSocket = server
                     while (isActive) {
                         val socket = server.accept()
@@ -333,6 +343,11 @@ class GpsServerService : Service() {
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
+
+        private val _startError = MutableStateFlow<String?>(null)
+
+        /** Why the last start failed, or null. */
+        val startError: StateFlow<String?> = _startError.asStateFlow()
 
         private val _capExpired = MutableStateFlow(false)
 
