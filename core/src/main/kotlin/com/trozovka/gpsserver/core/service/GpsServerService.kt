@@ -1,10 +1,12 @@
 package com.trozovka.gpsserver.core.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -48,10 +50,20 @@ class GpsServerService : Service() {
     private var serverJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var locationSource: LocationSource
+    private var started = false
 
     override fun onCreate() {
         super.onCreate()
-        startForegroundWithNotification()
+        try {
+            startForegroundWithNotification()
+        } catch (e: RuntimeException) {
+            // A location service may not be (re)started from the background without background
+            // location permission. Stop quietly; the user starts it again from the app.
+            Log.w(TAG, "Cannot run as a foreground service now", e)
+            stopSelf()
+            return
+        }
+        started = true
         acquireWakeLock()
         locationSource = LocationSource(applicationContext)
         locationSource.start()
@@ -65,13 +77,17 @@ class GpsServerService : Service() {
             val maxRuntime = EntitlementHost.current().maxRuntimeMillis()
             if (maxRuntime != null) {
                 delay(maxRuntime)
-                _capExpired.value = true
-                stopSelf()
+                // Ask again: Pro may have been bought during this session.
+                if (EntitlementHost.current().maxRuntimeMillis() != null) {
+                    _capExpired.value = true
+                    stopSelf()
+                }
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!started) return START_NOT_STICKY
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -83,7 +99,8 @@ class GpsServerService : Service() {
         if (serverJob == null) {
             startServer(port, bindAddress)
         }
-        return START_STICKY
+        // Automatic restart happens in the background, which needs background location.
+        return if (hasBackgroundLocation()) START_STICKY else START_NOT_STICKY
     }
 
     /** One connected OpenCPN (or other) client: its socket, its own send queue, and when a write last succeeded. */
@@ -207,6 +224,10 @@ class GpsServerService : Service() {
         return bytes
     }
 
+    private fun hasBackgroundLocation(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+
     private fun acquireWakeLock() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:GpsServerWakeLock").apply {
@@ -248,7 +269,7 @@ class GpsServerService : Service() {
     override fun onDestroy() {
         serverJob?.cancel()
         scope.cancel()
-        locationSource.stop()
+        if (::locationSource.isInitialized) locationSource.stop()
         releaseWakeLock()
         _isRunning.value = false
         _startTimeMillis.value = null

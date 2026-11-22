@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.trozovka.gpsserver.core.entitlement.EntitlementHost
 import com.trozovka.gpsserver.core.network.NetworkInterfaces
@@ -48,6 +49,8 @@ fun MainScreen(
     onStopRequested: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val appLabel = remember { context.applicationInfo.loadLabel(context.packageManager).toString() }
     val tierName = EntitlementHost.current().tierName
     val isRunning by GpsServerService.isRunning.collectAsState()
     val latestFix by GpsServerService.latestFix.collectAsState()
@@ -120,7 +123,7 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("OpenCPN GPS Server") },
+                title = { Text(appLabel) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")

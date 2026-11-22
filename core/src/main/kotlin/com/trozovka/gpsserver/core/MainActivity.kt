@@ -9,8 +9,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
@@ -54,6 +56,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The UI is always light, so keep dark status/navigation bar icons even in system dark mode.
+        val bars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
         preferences = AppPreferences(applicationContext)
         setContent {
@@ -107,7 +112,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
 
-        if (!backgroundGranted) {
+        if (!backgroundGranted && declaresPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
             requestBackgroundLocation.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         } else {
             requestBatteryOptimizationExemptionIfNeeded()
@@ -116,7 +121,9 @@ class MainActivity : ComponentActivity() {
 
     private fun requestBatteryOptimizationExemptionIfNeeded() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+        if (!powerManager.isIgnoringBatteryOptimizations(packageName) &&
+            declaresPermission(Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+        ) {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:$packageName")
             }
@@ -126,6 +133,11 @@ class MainActivity : ComponentActivity() {
             startServer()
         }
     }
+
+    /** Store builds may leave a permission out of their manifest; then it must not be requested. */
+    private fun declaresPermission(permission: String): Boolean =
+        packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions?.contains(permission) == true
 
     private fun startServer() {
         val intent = Intent(this, GpsServerService::class.java).apply {
