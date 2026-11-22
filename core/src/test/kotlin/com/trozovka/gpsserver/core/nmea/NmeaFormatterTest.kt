@@ -5,6 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Locale
 
 class NmeaFormatterTest {
 
@@ -84,6 +85,35 @@ class NmeaFormatterTest {
         assertTrue(rmc.contains(",,,")) // empty speed/course fields rather than fabricated values
         assertSelfConsistentChecksum(gga)
         assertSelfConsistentChecksum(rmc)
+    }
+
+    @Test
+    fun `decimal point is used in every phone language`() {
+        val before = Locale.getDefault()
+        try {
+            val expected = NmeaFormatter.gga(sampleFix()) + NmeaFormatter.rmc(sampleFix())
+            for (tag in listOf("de", "ru", "id", "fr", "ar-EG", "fa", "hi-IN-u-nu-deva", "th-TH-u-ca-buddhist")) {
+                Locale.setDefault(Locale.forLanguageTag(tag))
+                assertEquals(tag, expected, NmeaFormatter.gga(sampleFix()) + NmeaFormatter.rmc(sampleFix()))
+            }
+        } finally {
+            Locale.setDefault(before)
+        }
+    }
+
+    @Test
+    fun `stale position is marked invalid in every sentence`() {
+        assertTrue(NmeaFormatter.gga(sampleFix(), valid = false).split(",")[6] == "0")
+        assertTrue(NmeaFormatter.rmc(sampleFix(), valid = false).split(",")[2] == "V")
+        assertTrue(NmeaFormatter.vtg(sampleFix(), valid = false).contains(",K,N*"))
+        assertTrue(NmeaFormatter.gsa(sampleFix(), valid = false).startsWith("\$GPGSA,A,1,"))
+        listOf(NmeaFormatter.gga(sampleFix(), false), NmeaFormatter.rmc(sampleFix(), false)).forEach { assertSelfConsistentChecksum(it) }
+    }
+
+    @Test
+    fun `minutes never round up to sixty`() {
+        val fix = sampleFix().copy(latitude = 13.99999999, longitude = -120.99999999)
+        assertTrue(NmeaFormatter.rmc(fix).contains(",1400.0000,N,12100.0000,W,"))
     }
 
     private fun assertSelfConsistentChecksum(sentence: String) {

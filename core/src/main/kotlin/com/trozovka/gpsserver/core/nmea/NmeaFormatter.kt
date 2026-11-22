@@ -3,6 +3,7 @@ package com.trozovka.gpsserver.core.nmea
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -12,65 +13,64 @@ import kotlin.math.abs
  */
 object NmeaFormatter {
 
-    private val TIME_FORMAT = DateTimeFormatter.ofPattern("HHmmss.SS").withZone(ZoneOffset.UTC)
-    private val DATE_FORMAT = DateTimeFormatter.ofPattern("ddMMyy").withZone(ZoneOffset.UTC)
+    private val TIME_FORMAT = DateTimeFormatter.ofPattern("HHmmss.SS", Locale.US).withZone(ZoneOffset.UTC)
+    private val DATE_FORMAT = DateTimeFormatter.ofPattern("ddMMyy", Locale.US).withZone(ZoneOffset.UTC)
     private const val METERS_PER_SECOND_TO_KNOTS = 1.9438444924406
     private const val METERS_PER_SECOND_TO_KMH = 3.6
 
-    fun gga(fix: GpsFix): String {
+    fun gga(fix: GpsFix, valid: Boolean = true): String {
         val instant = Instant.ofEpochMilli(fix.timestampMillis)
         val (latField, latHemi) = formatLatitude(fix.latitude)
         val (lonField, lonHemi) = formatLongitude(fix.longitude)
         val satellites = (fix.satellitesUsed ?: 0).coerceIn(0, 99)
-        val altitude = fix.altitudeMeters?.let { "%.1f".format(it) } ?: ""
+        val altitude = fix.altitudeMeters?.let { "%.1f".fmt(it) } ?: ""
 
         val body = "GPGGA,${TIME_FORMAT.format(instant)},$latField,$latHemi,$lonField,$lonHemi," +
-            "1,${"%02d".format(satellites)},,$altitude,M,,M,,"
+            "${if (valid) 1 else 0},${"%02d".fmt(satellites)},,$altitude,M,,M,,"
         return withChecksum(body)
     }
 
-    fun rmc(fix: GpsFix): String {
+    fun rmc(fix: GpsFix, valid: Boolean = true): String {
         val instant = Instant.ofEpochMilli(fix.timestampMillis)
         val (latField, latHemi) = formatLatitude(fix.latitude)
         val (lonField, lonHemi) = formatLongitude(fix.longitude)
-        val speedKnots = fix.speedMetersPerSecond?.let { "%.1f".format(it * METERS_PER_SECOND_TO_KNOTS) } ?: ""
-        val course = fix.bearingDegrees?.let { "%.1f".format(it) } ?: ""
+        val speedKnots = fix.speedMetersPerSecond?.let { "%.1f".fmt(it * METERS_PER_SECOND_TO_KNOTS) } ?: ""
+        val course = fix.bearingDegrees?.let { "%.1f".fmt(it) } ?: ""
 
-        val body = "GPRMC,${TIME_FORMAT.format(instant)},A,$latField,$latHemi,$lonField,$lonHemi," +
-            "$speedKnots,$course,${DATE_FORMAT.format(instant)},,,A"
+        val body = "GPRMC,${TIME_FORMAT.format(instant)},${if (valid) "A" else "V"},$latField,$latHemi,$lonField,$lonHemi," +
+            "$speedKnots,$course,${DATE_FORMAT.format(instant)},,,${if (valid) "A" else "N"}"
         return withChecksum(body)
     }
 
-    fun vtg(fix: GpsFix): String {
-        val course = fix.bearingDegrees?.let { "%.1f".format(it) } ?: ""
-        val speedKnots = fix.speedMetersPerSecond?.let { "%.1f".format(it * METERS_PER_SECOND_TO_KNOTS) } ?: ""
-        val speedKmh = fix.speedMetersPerSecond?.let { "%.1f".format(it * METERS_PER_SECOND_TO_KMH) } ?: ""
+    fun vtg(fix: GpsFix, valid: Boolean = true): String {
+        val course = fix.bearingDegrees?.let { "%.1f".fmt(it) } ?: ""
+        val speedKnots = fix.speedMetersPerSecond?.let { "%.1f".fmt(it * METERS_PER_SECOND_TO_KNOTS) } ?: ""
+        val speedKmh = fix.speedMetersPerSecond?.let { "%.1f".fmt(it * METERS_PER_SECOND_TO_KMH) } ?: ""
 
-        val body = "GPVTG,$course,T,,M,$speedKnots,N,$speedKmh,K,A"
+        val body = "GPVTG,$course,T,,M,$speedKnots,N,$speedKmh,K,${if (valid) "A" else "N"}"
         return withChecksum(body)
     }
 
-    fun gsa(fix: GpsFix): String {
-        val fixType = if (fix.altitudeMeters != null) 3 else 2
+    fun gsa(fix: GpsFix, valid: Boolean = true): String {
+        val fixType = if (!valid) 1 else if (fix.altitudeMeters != null) 3 else 2
         val body = "GPGSA,A,$fixType,,,,,,,,,,,,,,,"
         return withChecksum(body)
     }
 
-    private fun formatLatitude(latitude: Double): Pair<String, Char> {
-        val hemisphere = if (latitude >= 0) 'N' else 'S'
-        val absValue = abs(latitude)
-        val degrees = absValue.toInt()
-        val minutes = (absValue - degrees) * 60.0
-        return "%02d%07.4f".format(degrees, minutes) to hemisphere
+    private fun formatLatitude(latitude: Double): Pair<String, Char> =
+        degreesMinutes(latitude, "%02d%07.4f") to (if (latitude >= 0) 'N' else 'S')
+
+    private fun formatLongitude(longitude: Double): Pair<String, Char> =
+        degreesMinutes(longitude, "%03d%07.4f") to (if (longitude >= 0) 'E' else 'W')
+
+    /** Rounds first, so the minutes can never print as 60.0000. */
+    private fun degreesMinutes(value: Double, pattern: String): String {
+        val tenThousandths = Math.round(abs(value) * 600_000.0)
+        return pattern.fmt((tenThousandths / 600_000).toInt(), (tenThousandths % 600_000) / 10_000.0)
     }
 
-    private fun formatLongitude(longitude: Double): Pair<String, Char> {
-        val hemisphere = if (longitude >= 0) 'E' else 'W'
-        val absValue = abs(longitude)
-        val degrees = absValue.toInt()
-        val minutes = (absValue - degrees) * 60.0
-        return "%03d%07.4f".format(degrees, minutes) to hemisphere
-    }
+    /** NMEA always uses a decimal point, whatever language the phone is set to. */
+    private fun String.fmt(vararg args: Any?): String = String.format(Locale.US, this, *args)
 
     /** XOR of every byte in the sentence body (between '$' and '*'). Internal so tests can
      * verify it directly against hand-computed values, independent of sentence-building. */
@@ -81,6 +81,6 @@ object NmeaFormatter {
     }
 
     private fun withChecksum(body: String): String {
-        return "$" + body + "*" + "%02X".format(checksum(body)) + "\r\n"
+        return "$" + body + "*" + "%02X".fmt(checksum(body)) + "\r\n"
     }
 }
