@@ -3,7 +3,7 @@ Use your Android phone as the GPS for OpenCPN on your laptop, over Wi-Fi. No USB
 
 The phone sends its position, speed and course to OpenCPN once per second, also with the screen locked. Several laptops can use the same phone.
 
-Free version: everything works, but each session stops after 1 minute and you press Start again. OpenCPN GPS Server Pro has no time limit.
+Free version: everything works, but each session lasts 2 hours and you can start another one any time. OpenCPN GPS Server Pro has no time limit.
 
 Backup and practice use only. This is not a certified navigation input. Never use it as your only way of fixing the ship's position.
 

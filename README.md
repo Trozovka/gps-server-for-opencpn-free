@@ -8,7 +8,7 @@ The phone shows no chart; it only passes the position to the laptop.
 **Backup and practice use only.** This is not a certified navigation input and not a type-approved ECDIS
 sensor. Never use it as your only way of fixing the ship's position.
 
-Free version: everything works, but each session stops after 1 minute and you press Start again.
+Free version: everything works, but each session lasts 2 hours and you can start another one any time.
 [OpenCPN GPS Server Pro](#pro-version) runs without a time limit.
 
 Made by **[Trozovka](https://github.com/Trozovka) (John Winsome Munar)**, Master Mariner.
@@ -64,12 +64,12 @@ checksums) from a TCP server socket. OpenCPN connects as a Network -> TCP client
 
 ### Technical details
 
-- Location from `FusedLocationProviderClient`, with a `LocationManager`/GPS fallback.
+- Positions from the satellite receiver only (`LocationManager` GPS provider), never from Wi-Fi or mobile networks.
 - Android foreground service with a partial wake lock; survives Doze once the battery-optimization exemption is granted.
 - Server listens on all interfaces; multi-client (each client handled separately); unresponsive clients dropped after about 15 s.
 - Telemetry includes fix-to-wire latency (red above 500 ms).
 - NMEA output always uses NMEA-native units, whatever the display setting (that is what OpenCPN expects).
-- Free sessions stop after 1 minute with an upgrade prompt.
+- Free sessions stop after 2 hours (counted from the first position) with an upgrade prompt.
 
 ### Build from source
 
