@@ -59,6 +59,8 @@ fun MainScreen(
     val startTimeMillis by GpsServerService.startTimeMillis.collectAsState()
     val debugLog by GpsServerService.debugLog.collectAsState()
     val capExpired by GpsServerService.capExpired.collectAsState()
+    val satellites by GpsServerService.satellites.collectAsState()
+    val gpsEnabled by GpsServerService.gpsEnabled.collectAsState()
 
     var debugLogExpanded by remember { mutableStateOf(false) }
     var selectionWarning by remember { mutableStateOf<String?>(null) }
@@ -103,9 +105,9 @@ fun MainScreen(
         when {
             !isRunning -> "--"
             currentMaxRuntime == null -> "Unlimited"
-            currentStartTime == null -> "--"
             else -> {
-                val elapsed = System.currentTimeMillis() - currentStartTime
+                // Counts from the first position; until then the full time is left.
+                val elapsed = if (currentStartTime == null) 0L else System.currentTimeMillis() - currentStartTime
                 val remainingSeconds = ((currentMaxRuntime - elapsed) / 1000).coerceAtLeast(0)
                 "%d:%02d".format(remainingSeconds / 60, remainingSeconds % 60)
             }
@@ -114,9 +116,10 @@ fun MainScreen(
 
     val gpsStatus = when {
         !isRunning -> "-"
-        latestFix == null -> "acquiring"
-        SystemClock.elapsedRealtime() - (latestFix?.measuredAtElapsedMillis ?: 0L) > 20_000L -> "lost (no new position)"
-        else -> "locked"
+        !gpsEnabled -> "off - turn on Location on this phone"
+        latestFix == null -> "searching, ${satellites?.seen ?: 0} satellites heard (can take 20 minutes or more)"
+        SystemClock.elapsedRealtime() - (latestFix?.measuredAtElapsedMillis ?: 0L) > 20_000L -> "lost (no new position), ${satellites?.used ?: 0} satellites used"
+        else -> "locked, ${satellites?.used ?: 0} satellites used"
     }
 
     Scaffold(

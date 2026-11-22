@@ -26,7 +26,7 @@ interface EntitlementManager {
      * nonsensical since the user is already running the Pro app.
      */
     val capExpiredMessage: String
-        get() = "$tierName sessions are capped at 1 minute. Upgrade to Pro for unlimited runtime."
+        get() = "Free sessions last 2 hours. Press Start to run another one, or upgrade to Pro for no time limit."
 }
 
 class FreeEntitlementManager : EntitlementManager {
@@ -35,6 +35,6 @@ class FreeEntitlementManager : EntitlementManager {
     override suspend fun maxRuntimeMillis(): Long = FREE_RUNTIME_CAP_MILLIS
 
     companion object {
-        const val FREE_RUNTIME_CAP_MILLIS = 60_000L
+        const val FREE_RUNTIME_CAP_MILLIS = 2L * 60 * 60 * 1000
     }
 }
