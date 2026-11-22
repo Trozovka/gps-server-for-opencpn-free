@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.trozovka.gpsserver.core.entitlement.EntitlementHost
 import com.trozovka.gpsserver.core.location.LocationSource
+import com.trozovka.gpsserver.core.location.SatelliteStatus
 import com.trozovka.gpsserver.core.nmea.GpsFix
 import com.trozovka.gpsserver.core.nmea.NmeaFormatter
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -69,12 +71,20 @@ class GpsServerService : Service() {
         locationSource = LocationSource(applicationContext)
         locationSource.start()
         _isRunning.value = true
-        _startTimeMillis.value = System.currentTimeMillis()
         _capExpired.value = false
         scope.launch {
             locationSource.fixes.collect { _latestFix.value = it }
         }
         scope.launch {
+            locationSource.satellites.collect { _satellites.value = it }
+        }
+        scope.launch {
+            locationSource.gpsEnabled.collect { _gpsEnabled.value = it }
+        }
+        scope.launch {
+            // Session time counts from the first position: finding GPS can take long at sea.
+            locationSource.fixes.first { it != null }
+            _startTimeMillis.value = System.currentTimeMillis()
             val maxRuntime = EntitlementHost.current().maxRuntimeMillis()
             if (maxRuntime != null) {
                 delay(maxRuntime)
@@ -288,6 +298,8 @@ class GpsServerService : Service() {
         _isRunning.value = false
         _startTimeMillis.value = null
         _latestFix.value = null
+        _satellites.value = null
+        _gpsEnabled.value = true
         _latencyMillis.value = null
         _connectedClient.value = null
         _clients.value = emptyList()
@@ -325,6 +337,13 @@ class GpsServerService : Service() {
             _capExpired.value = false
         }
 
+        private val _satellites = MutableStateFlow<SatelliteStatus?>(null)
+        val satellites: StateFlow<SatelliteStatus?> = _satellites.asStateFlow()
+
+        private val _gpsEnabled = MutableStateFlow(true)
+        val gpsEnabled: StateFlow<Boolean> = _gpsEnabled.asStateFlow()
+
+        /** When the first position of this session arrived. */
         private val _startTimeMillis = MutableStateFlow<Long?>(null)
         val startTimeMillis: StateFlow<Long?> = _startTimeMillis.asStateFlow()
 
