@@ -51,6 +51,7 @@ class GpsServerService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var serverJob: Job? = null
+    @Volatile private var serverSocket: ServerSocket? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var locationSource: LocationSource
     private var started = false
@@ -164,6 +165,7 @@ class GpsServerService : Service() {
                     reuseAddress = true
                     bind(socketAddress)
                 }.use { server ->
+                    serverSocket = server
                     while (isActive) {
                         val socket = server.accept()
                         if (clients.size >= MAX_CLIENTS) {
@@ -291,6 +293,10 @@ class GpsServerService : Service() {
     }
 
     override fun onDestroy() {
+        // Cancelling does not wake a waiting accept() or write(): close the sockets themselves, before
+        // the wake lock goes, so laptops see the stop at once and the port is free for the next Start.
+        runCatching { serverSocket?.close() }
+        clients.keys.forEach { runCatching { it.close() } }
         serverJob?.cancel()
         scope.cancel()
         if (::locationSource.isInitialized) locationSource.stop()
