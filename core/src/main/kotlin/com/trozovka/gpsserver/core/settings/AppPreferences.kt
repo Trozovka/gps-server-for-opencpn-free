@@ -20,10 +20,16 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_METRIC_UNITS, false)
         set(value) = prefs.edit().putBoolean(KEY_METRIC_UNITS, value).apply()
 
+    /** The battery screen is shown once; after that only from Settings. */
+    var batteryScreenShown: Boolean
+        get() = prefs.getBoolean(KEY_BATTERY_SCREEN_SHOWN, false)
+        set(value) = prefs.edit().putBoolean(KEY_BATTERY_SCREEN_SHOWN, value).apply()
+
     companion object {
         private const val PREFS_NAME = "gps_server_prefs"
         private const val KEY_PORT = "port"
         private const val KEY_BOUND_ADDRESS = "bound_address"
         private const val KEY_METRIC_UNITS = "metric_units"
+        private const val KEY_BATTERY_SCREEN_SHOWN = "battery_screen_shown"
     }
 }

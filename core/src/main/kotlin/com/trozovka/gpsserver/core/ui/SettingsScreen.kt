@@ -17,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,11 +42,19 @@ private const val MIN_PORT = 1024
 private const val MAX_PORT = 65535
 private const val GITHUB_URL = "https://github.com/Trozovka"
 
+private fun sessionLength(millis: Long): String {
+    val minutes = millis / 60_000
+    return if (minutes >= 60 && minutes % 60 == 0L) {
+        if (minutes == 60L) "1 hour" else "${minutes / 60} hours"
+    } else if (minutes == 1L) "1 minute" else "$minutes minutes"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     preferences: AppPreferences,
     onBack: () -> Unit,
+    onAllowBackground: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var portText by remember { mutableStateOf(preferences.port.toString()) }
@@ -58,7 +67,7 @@ fun SettingsScreen(
     }
     val runtimeDescription = when (val runtime = maxRuntimeMillis) {
         null -> "$tierName: Unlimited (until stopped)"
-        else -> "$tierName: fixed at ${runtime / 1000}s per session, not editable"
+        else -> "$tierName: ${sessionLength(runtime)} per session"
     }
 
     Scaffold(
@@ -118,6 +127,14 @@ fun SettingsScreen(
                         metricUnits = it
                         preferences.metricUnits = it
                     },
+                )
+            }
+
+            onAllowBackground?.let {
+                OutlinedButton(onClick = it) { Text("Allow running in the background") }
+                Text(
+                    "Keeps the server running when the phone saves battery.",
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
 

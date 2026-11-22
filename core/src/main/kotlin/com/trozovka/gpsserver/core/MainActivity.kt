@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     SettingsScreen(
                         preferences = preferences,
                         onBack = { showSettings = false },
+                        onAllowBackground = if (canAskForBackgroundRunning()) ::openBatteryScreen else null,
                     )
                 } else {
                     MainScreen(
@@ -115,17 +116,32 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestBatteryOptimizationExemptionIfNeeded() {
-        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:$packageName")
-            }
-            batteryOptimizationSettings.launch(intent)
+        if (canAskForBackgroundRunning() && !preferences.batteryScreenShown) {
+            preferences.batteryScreenShown = true
+            openBatteryScreen()
         } else {
             startAfterPermissions = false
             startServer()
         }
     }
+
+    private fun canAskForBackgroundRunning(): Boolean {
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        return !powerManager.isIgnoringBatteryOptimizations(packageName) &&
+            declaresPermission(Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+    }
+
+    private fun openBatteryScreen() {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        batteryOptimizationSettings.launch(intent)
+    }
+
+    /** Store builds may leave a permission out of their manifest; then it must not be requested. */
+    private fun declaresPermission(permission: String): Boolean =
+        packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions?.contains(permission) == true
 
     private fun startServer() {
         val intent = Intent(this, GpsServerService::class.java).apply {

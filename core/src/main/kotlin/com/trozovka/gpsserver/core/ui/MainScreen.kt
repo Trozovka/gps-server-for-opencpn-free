@@ -59,6 +59,7 @@ fun MainScreen(
     val startTimeMillis by GpsServerService.startTimeMillis.collectAsState()
     val debugLog by GpsServerService.debugLog.collectAsState()
     val capExpired by GpsServerService.capExpired.collectAsState()
+    val startError by GpsServerService.startError.collectAsState()
     val satellites by GpsServerService.satellites.collectAsState()
     val gpsEnabled by GpsServerService.gpsEnabled.collectAsState()
 
@@ -147,9 +148,6 @@ fun MainScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
-            Text("GPS: $gpsStatus")
-            Text("Network: ${when (clients.size) { 0 -> "Disconnected"; 1 -> "Connected"; else -> "Connected (${clients.size} clients)" }}")
-
             Button(
                 onClick = {
                     if (isRunning) {
@@ -165,6 +163,11 @@ fun MainScreen(
                 modifier = Modifier.padding(vertical = 8.dp),
             ) {
                 Text(if (isRunning) "Stop" else "Start")
+            }
+            Text("GPS: $gpsStatus")
+            Text("Network: ${when (clients.size) { 0 -> "Disconnected"; 1 -> "Connected"; else -> "Connected (${clients.size} clients)" }}")
+            startError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
             selectionWarning?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
