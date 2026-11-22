@@ -186,6 +186,16 @@ class GpsServerService : Service() {
             client.keepAlive = true
             // Small send buffer: a dead client fills it within seconds, so its write blocks and the watchdog sees it.
             runCatching { client.sendBufferSize = SEND_BUFFER_BYTES }
+            // Notice a client that hangs up even while there is no position to send it; otherwise
+            // closed connections would fill all MAX_CLIENTS places.
+            scope.launch {
+                runCatching {
+                    val input = client.getInputStream()
+                    val ignored = ByteArray(256)
+                    while (input.read(ignored) >= 0) Unit
+                }
+                conn.queue.close()
+            }
             val out = client.getOutputStream()
             try {
                 for (bytes in conn.queue) {
