@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.trozovka.gpsserver.core.entitlement.EntitlementHost
@@ -204,10 +205,13 @@ class GpsServerService : Service() {
     }
 
     private fun buildFix(fix: GpsFix): ByteArray {
-        val sentences = NmeaFormatter.gga(fix) +
-            NmeaFormatter.rmc(fix) +
-            NmeaFormatter.vtg(fix) +
-            NmeaFormatter.gsa(fix)
+        // An old position must not look current: OpenCPN ignores sentences marked invalid.
+        val ageMillis = SystemClock.elapsedRealtime() - fix.measuredAtElapsedMillis
+        val valid = ageMillis <= STALE_FIX_MILLIS
+        val sentences = NmeaFormatter.gga(fix, valid) +
+            NmeaFormatter.rmc(fix, valid) +
+            NmeaFormatter.vtg(fix, valid) +
+            NmeaFormatter.gsa(fix, valid)
         val bytes = sentences.toByteArray()
 
         val stats = _sentStats.value
@@ -216,7 +220,7 @@ class GpsServerService : Service() {
         val newLines = sentences.split("\r\n").filter { it.isNotBlank() }
         _debugLog.value = (_debugLog.value + newLines).takeLast(MAX_DEBUG_LOG_LINES)
 
-        val latencyMillis = System.currentTimeMillis() - fix.timestampMillis
+        val latencyMillis = ageMillis
         _latencyMillis.value = latencyMillis
         if (latencyMillis > LATENCY_WARNING_THRESHOLD_MILLIS) {
             Log.w(TAG, "Fix-to-wire latency high: ${latencyMillis}ms")
@@ -290,6 +294,7 @@ class GpsServerService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val LATENCY_WARNING_THRESHOLD_MILLIS = 500L
         private const val MAX_DEBUG_LOG_LINES = 200
+        private const val STALE_FIX_MILLIS = 20_000L
         private const val DEAD_CLIENT_MILLIS = 15_000L
         private const val MAX_CLIENTS = 8
         private const val SEND_BUFFER_BYTES = 4096

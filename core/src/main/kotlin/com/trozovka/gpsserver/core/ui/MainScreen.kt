@@ -1,5 +1,6 @@
 package com.trozovka.gpsserver.core.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -117,6 +118,7 @@ fun MainScreen(
     val gpsStatus = when {
         !isRunning -> "-"
         latestFix == null -> "acquiring"
+        SystemClock.elapsedRealtime() - (latestFix?.measuredAtElapsedMillis ?: 0L) > 20_000L -> "lost (no new position)"
         else -> "locked"
     }
 

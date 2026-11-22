@@ -9,4 +9,6 @@ data class GpsFix(
     val speedMetersPerSecond: Float?,
     val bearingDegrees: Float?,
     val satellitesUsed: Int?,
+    /** Time since boot when the position was measured; unlike the clock it never jumps. */
+    val measuredAtElapsedMillis: Long = 0L,
 )

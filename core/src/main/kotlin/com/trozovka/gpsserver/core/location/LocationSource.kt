@@ -116,6 +116,7 @@ class LocationSource(private val context: Context) {
             speedMetersPerSecond = if (location.hasSpeed()) location.speed else null,
             bearingDegrees = if (location.hasBearing()) location.bearing else null,
             satellitesUsed = satellitesUsed,
+            measuredAtElapsedMillis = location.elapsedRealtimeNanos / 1_000_000,
         )
     }
 
