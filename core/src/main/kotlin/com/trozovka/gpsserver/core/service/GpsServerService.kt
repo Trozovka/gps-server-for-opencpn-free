@@ -267,7 +267,7 @@ class GpsServerService : Service() {
         }
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("OpenCPN GPS Server running")
+            .setContentTitle("GPS Server for OpenCPN running")
             .setContentText("Streaming NMEA to connected clients")
             .setSmallIcon(com.trozovka.gpsserver.core.R.drawable.ic_notification)
             .setOngoing(true)

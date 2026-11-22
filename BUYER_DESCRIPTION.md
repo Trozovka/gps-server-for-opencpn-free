@@ -1,9 +1,9 @@
-OpenCPN GPS Server Free
+GPS Server for OpenCPN (Free)
 Use your Android phone as the GPS for OpenCPN on your laptop, over Wi-Fi. No USB GPS puck needed.
 
 The phone sends its position, speed and course to OpenCPN once per second, also with the screen locked. Several laptops can use the same phone.
 
-Free version: everything works, but each session lasts 2 hours and you can start another one any time. OpenCPN GPS Server Pro has no time limit.
+Free version: everything works, but each session lasts 2 hours and you can start another one any time. GPS Server for OpenCPN (Pro) has no time limit.
 
 Backup and practice use only. This is not a certified navigation input. Never use it as your only way of fixing the ship's position.
 
@@ -14,6 +14,6 @@ How to connect
 Installing
 Requires Android 8.0 or newer. Coming soon to Google Play; until then you install the APK file. Android will show an "unrecognized app" / Play Protect warning and ask you to allow installs from this source the first time. That is normal for apps installed outside Google Play.
 
-For coders: open source (MIT), github.com/Trozovka/opencpn-gps-server-free
+For coders: open source (MIT), github.com/Trozovka/gps-server-for-opencpn-free
 
 Made by Trozovka (John Winsome Munar), Master Mariner.

@@ -1,4 +1,6 @@
-# OpenCPN GPS Server Free
+# GPS Server for OpenCPN (Free)
+
+Formerly "OpenCPN GPS Server Free". An independent app for use with OpenCPN, not made by the OpenCPN project.
 
 Use your Android phone as the GPS for OpenCPN on your laptop, over Wi-Fi. No USB GPS puck needed.
 
@@ -9,7 +11,7 @@ The phone shows no chart; it only passes the position to the laptop.
 sensor. Never use it as your only way of fixing the ship's position.
 
 Free version: everything works, but each session lasts 2 hours and you can start another one any time.
-[OpenCPN GPS Server Pro](#pro-version) runs without a time limit.
+[GPS Server for OpenCPN (Pro)](#pro-version) runs without a time limit.
 
 Made by **[Trozovka](https://github.com/Trozovka) (John Winsome Munar)**, Master Mariner.
 
@@ -32,7 +34,7 @@ Keywords: OpenCPN, GPS, NMEA 0183, Android, phone as GPS, Wi-Fi GPS, TCP, at sea
 
 ## Install (no building needed)
 
-1. Download the APK from **[GitHub Releases](https://github.com/Trozovka/opencpn-gps-server-free/releases)**
+1. Download the APK from **[GitHub Releases](https://github.com/Trozovka/gps-server-for-opencpn-free/releases)**
    or **[Gumroad](https://trozovka.gumroad.com/l/opencpn-gps-server-free)** (free).
 2. Open the file on the phone. Android asks you to allow installs from this source the first time. That is
    normal, because the app is not on Google Play.
@@ -51,7 +53,7 @@ The phone and laptop must be on the same network (ship Wi-Fi, or the laptop on t
 
 ## Pro version
 
-**OpenCPN GPS Server Pro** has no time limit: run it for the whole passage.
+**GPS Server for OpenCPN (Pro)** has no time limit: run it for the whole passage.
 Price and download: **[trozovka.gumroad.com/l/opencpn-gps-server-pro](https://trozovka.gumroad.com/l/opencpn-gps-server-pro)**.
 The Pro source is private. This repo has the full source of the free version under the MIT license.
 
@@ -76,8 +78,8 @@ checksums) from a TCP server socket. OpenCPN connects as a Network -> TCP client
 Requires JDK 17 and the Android SDK (the Gradle wrapper handles the rest).
 
 ```
-git clone https://github.com/Trozovka/opencpn-gps-server-free.git
-cd opencpn-gps-server-free
+git clone https://github.com/Trozovka/gps-server-for-opencpn-free.git
+cd gps-server-for-opencpn-free
 echo "sdk.dir=/path/to/your/android-sdk" > local.properties
 ./gradlew assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
