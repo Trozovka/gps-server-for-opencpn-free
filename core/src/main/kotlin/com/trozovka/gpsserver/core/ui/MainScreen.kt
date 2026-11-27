@@ -1,5 +1,9 @@
 package com.trozovka.gpsserver.core.ui
 
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,6 +56,7 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val appLabel = remember { context.applicationInfo.loadLabel(context.packageManager).toString() }
+    val versionName = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?" }
     val tierName = EntitlementHost.current().tierName
     val isRunning by GpsServerService.isRunning.collectAsState()
     val latestFix by GpsServerService.latestFix.collectAsState()
@@ -128,13 +133,21 @@ fun MainScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(appLabel) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(appLabel, fontWeight = FontWeight.Bold)
+                        Text("v$versionName", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
+                    }
+                },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = TealBar, titleContentColor = Color.White, actionIconContentColor = Color.White,
+                ),
             )
         },
     ) { padding ->
@@ -161,7 +174,7 @@ fun MainScreen(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRunning) RunningColor else StoppedColor,
+                    containerColor = if (isRunning) Orange else Teal, // teal = start, orange = stop (attention)
                 ),
                 modifier = Modifier.padding(vertical = 8.dp),
             ) {

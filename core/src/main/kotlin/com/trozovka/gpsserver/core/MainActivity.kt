@@ -1,5 +1,6 @@
 package com.trozovka.gpsserver.core
 
+import com.trozovka.gpsserver.core.ui.TrozovkaTheme
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -57,12 +58,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // The UI is always light, so keep dark status/navigation bar icons even in system dark mode.
-        val bars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        val bars = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
         preferences = AppPreferences(applicationContext)
         setContent {
-            MaterialTheme {
+            TrozovkaTheme {
                 var showSettings by remember { mutableStateOf(false) }
                 BackHandler(enabled = showSettings) { showSettings = false }
                 if (showSettings) {

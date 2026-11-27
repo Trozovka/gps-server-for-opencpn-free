@@ -1,5 +1,7 @@
 package com.trozovka.gpsserver.core.ui
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.TopAppBarDefaults
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -73,6 +75,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = TealBar, titleContentColor = Color.White, navigationIconContentColor = Color.White),
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
