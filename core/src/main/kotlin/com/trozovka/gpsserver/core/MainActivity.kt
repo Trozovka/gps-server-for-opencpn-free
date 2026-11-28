@@ -1,5 +1,6 @@
 package com.trozovka.gpsserver.core
 
+import com.trozovka.gpsserver.core.ui.TrozovkaTheme
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,8 +10,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
@@ -54,10 +57,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The UI is always light, so keep dark status/navigation bar icons even in system dark mode.
+        val bars = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
         preferences = AppPreferences(applicationContext)
         setContent {
-            MaterialTheme {
+            TrozovkaTheme {
                 var showSettings by remember { mutableStateOf(false) }
                 BackHandler(enabled = showSettings) { showSettings = false }
                 if (showSettings) {
@@ -108,7 +114,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
 
-        if (!backgroundGranted) {
+        if (!backgroundGranted && declaresPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
             requestBackgroundLocation.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         } else {
             requestBatteryOptimizationExemptionIfNeeded()
